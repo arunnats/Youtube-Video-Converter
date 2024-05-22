@@ -9,6 +9,14 @@ body {
 	font-size: medium;
 }
 
+.container-inputs,
+.container-fields {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+}
+
 .footertext {
 	color: whitesmoke;
 	font-family: "Reddit Sans", sans-serif;
@@ -18,4 +26,15 @@ body {
 
 img {
 	height: 40px;
+}
+
+h1 {
+	font-family: "Reddit Sans", sans-serif;
+	color: whitesmoke;
+	font-size: 50px;
+}
+
+h4 {
+	font-family: "Reddit Sans", sans-serif;
+	color: whitesmoke;
 }
