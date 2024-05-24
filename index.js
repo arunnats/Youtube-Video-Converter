@@ -3,7 +3,7 @@ const ejs = require("ejs");
 const path = require("path");
 const bodyParser = require("body-parser");
 const ytdl = require("ytdl-core");
-const fs = require("fs");
+const sanitize = require("sanitize-filename");
 
 const app = express();
 const port = 3000;
@@ -20,66 +20,82 @@ app.get("/download-video", async (req, res) => {
 		console.log("Request query parameters:", req.query);
 
 		if (!ytdl.validateURL(url)) {
+			console.log("Invalid YouTube URL:", url);
 			return res.status(400).send("Invalid YouTube URL");
 		}
 
 		const info = await ytdl.getInfo(url);
+		const videoTitle = info.videoDetails.title;
+		console.log("Video title:", videoTitle);
+
+		const sanitizedTitle = sanitize(videoTitle);
+		console.log("Sanitized title:", sanitizedTitle);
+
+		res.setHeader("Video-Title", sanitizedTitle);
 
 		if (format === "mp3") {
-			let audioOptions = {};
+			console.log("Downloading audio...");
 
-			if (quality === "highest") {
-				audioOptions.quality = "highestaudio";
-			} else if (quality === "lowest") {
-				audioOptions.quality = "lowestaudio";
-			} else {
-				return res.status(400).send("Invalid audio quality option");
-			}
+			const audioFormat = ytdl.chooseFormat(info.formats, {
+				quality: "highestaudio",
+			});
+			console.log("Selected audio format:", audioFormat);
 
-			const audioFormat = ytdl.chooseFormat(info.formats, audioOptions);
-			if (!audioFormat) {
-				return res.status(400).send("Audio format not available");
-			}
+			const filename = `${sanitizedTitle}.mp3`;
+			console.log("Download filename:", filename);
 
-			res.header(
-				"Content-Disposition",
-				`attachment; filename="${info.videoDetails.title}.mp3"`
-			);
-			res.header("Content-Type", "audio/mpeg");
+			res.header("Content-Disposition", `attachment; filename="${filename}"`);
+			res.header("Content-Type", "audio/mpeg charset=UTF-8`");
 
 			const audioStream = ytdl.downloadFromInfo(info, { format: audioFormat });
 			audioStream.pipe(res);
+
+			console.log("Audio download initiated.");
 		} else if (format === "webm" || format === "mp4") {
+			console.log("Downloading video...");
+
 			let videoOptions = {};
+			let audioOptions = {};
 
 			if (quality === "highest") {
 				videoOptions.quality = "highest";
+				audioOptions.quality = "highestaudio";
 			} else if (quality === "lowest") {
 				videoOptions.quality = "lowest";
+				audioOptions.quality = "lowestaudio";
 			} else {
 				const selectedFormat = info.formats.find(
 					(fmt) => fmt.qualityLabel === quality
 				);
 				if (!selectedFormat) {
+					console.log("Selected quality is not available:", quality);
 					return res.status(400).send("Selected quality is not available");
 				}
 				videoOptions.filter = (fmt) => fmt.qualityLabel === quality;
+				audioOptions.filter = (fmt) => fmt.qualityLabel === quality;
 			}
 
-			const videoFormats = ytdl.filterFormats(info.formats, videoOptions);
-			const selectedVideoFormat = videoFormats[0];
+			const videoFormat = ytdl.chooseFormat(info.formats, videoOptions);
+			const audioFormat = ytdl.chooseFormat(info.formats, audioOptions);
 
-			res.header(
-				"Content-Disposition",
-				`attachment; filename="${info.videoDetails.title}.${format}"`
-			);
-			res.header("Content-Type", `video/${format}`);
+			const filename = `${sanitizedTitle}.${format}`;
+			console.log("Download filename:", filename);
 
-			const videoStream = ytdl.downloadFromInfo(info, {
-				format: selectedVideoFormat,
+			res.header("Content-Disposition", `attachment; filename="${filename}"`);
+			res.header("Content-Type", `video/${format} charset=UTF-8`);
+
+			const audioStream = ytdl.downloadFromInfo(info, { format: audioFormat });
+			const videoStream = ytdl.downloadFromInfo(info, { format: videoFormat });
+
+			audioStream.pipe(res, { end: false });
+
+			audioStream.on("end", () => {
+				videoStream.pipe(res);
 			});
-			videoStream.pipe(res);
+
+			console.log("Video download initiated.");
 		} else {
+			console.log("Invalid format:", format);
 			return res.status(400).send("Invalid format");
 		}
 	} catch (error) {

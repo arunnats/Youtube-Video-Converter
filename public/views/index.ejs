@@ -145,11 +145,18 @@
 					fetch(`/download-video?${query}`, { method: "GET" })
 						.then((response) => {
 							if (response.ok) {
+								// Access and log the title from the response headers
+								const videoTitle = response.headers.get("Video-Title");
+								console.log("Video title:", videoTitle);
+
 								response.blob().then((blob) => {
 									const downloadUrl = window.URL.createObjectURL(blob);
 									const a = document.createElement("a");
 									a.href = downloadUrl;
-									a.download = `${url.split("v=")[1]}.${format}`;
+
+									// Dynamically set the file name using the video title and format
+									a.download = `${videoTitle}.${format}`;
+
 									document.body.appendChild(a);
 									a.click();
 									a.remove();
