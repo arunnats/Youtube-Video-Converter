@@ -2,7 +2,6 @@ const express = require("express");
 const ejs = require("ejs");
 const path = require("path");
 const bodyParser = require("body-parser");
-const fs = require("fs");
 const ytdl = require("ytdl-core");
 
 const app = express();
@@ -16,25 +15,36 @@ app.use(express.static("public"));
 
 app.get("/download-video", async (req, res) => {
 	try {
-		const videoUrl = req.query.url;
-		if (!ytdl.validateURL(videoUrl)) {
+		const { url, format, quality } = req.query;
+		console.log("Request query parameters:", req.query);
+
+		if (!ytdl.validateURL(url)) {
 			return res.status(400).send("Invalid YouTube URL");
 		}
 
-		// Fetch video info to get the title
-		const info = await ytdl.getInfo(videoUrl);
-		const title = info.videoDetails.title;
+		const info = await ytdl.getInfo(url);
+		const title = info.videoDetails.title.replace(/[^\w\s]/gi, "");
+		const filename = `${title}.${format}`;
 
-		// Create filename based on the video title
-		const filename = title.replace(/[^\w\s]/gi, "") + ".mp4";
+		res.header("Content-Disposition", `attachment; filename="${filename}"`);
+		res.header("Content-Type", `video/${format}`);
 
-		// Pipe the video stream directly to a file with the video title as filename
-		ytdl(videoUrl).pipe(fs.createWriteStream(filename));
+		// Select the desired format and quality
+		const videoFormat = ytdl.chooseFormat(info.formats, {
+			quality: quality === "highest" ? "highest" : "lowest",
+			filter: (formatObj) => formatObj.container === format,
+		});
 
-		// Send a success response back to the client
-		res
-			.status(200)
-			.send(`Video download started successfully. Filename: ${filename}`);
+		if (!videoFormat) {
+			return res
+				.status(400)
+				.send("No suitable format found for the specified quality");
+		}
+
+		// Stream the video
+		ytdl(url, {
+			format: videoFormat,
+		}).pipe(res);
 	} catch (error) {
 		console.error("Error downloading video:", error);
 		res.status(500).send("Error downloading video");

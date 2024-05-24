@@ -23,18 +23,17 @@
 			rel="stylesheet"
 		/>
 	</head>
-
 	<body>
-		<div class="container" bis_skin_checked="1">
+		<div class="container">
 			<header
 				class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-between py-3 mb-4 border-bottom"
 			>
-				<div class="col-md-3 mb-2 mb-md-0" bis_skin_checked="1">
+				<div class="col-md-3 mb-2 mb-md-0">
 					<a
 						href="/"
 						class="d-inline-flex link-body-emphasis text-decoration-none"
 					>
-						<img src="../images/Logo(white).png" alt="" />
+						<img src="../images/Logo(white).png" alt="Logo" />
 					</a>
 				</div>
 				<ul class="nav col-12 col-md-auto mb-2 justify-content-center mb-md-0">
@@ -63,10 +62,29 @@
 
 		<div class="container-inputs">
 			<h1>YouTube Converter and Downloader</h1>
-			<h4>Covert YT URLs using yt-dlp</h3>
+			<h4>Convert YT URLs using yt-dlp</h4>
+			<form id="inputFormContainer" action="/download-video" method="post">
+				<label class="form-text" for="formResponse"
+					>Enter YouTube Video URL:</label
+				>
+				<input class="inputForm" type="text" id="url" name="url" required />
 
-			
-	</div>
+				<label class="form-text" for="format">Select Format:</label>
+				<select class="inputForm" name="format" id="format">
+					<option value="mp4" selected>MP4</option>
+					<option value="mp3">MP3</option>
+					<option value="webm">WEBM</option>
+				</select>
+
+				<label class="form-text" for="quality">Select Quality:</label>
+				<select class="inputForm" name="quality" id="quality">
+					<option value="highest" selected>Highest</option>
+					<option value="lowest">Lowest</option>
+				</select>
+
+				<button type="submit">Download Video!</button>
+			</form>
+		</div>
 
 		<div class="container">
 			<footer
@@ -83,7 +101,6 @@
 					</a>
 					<span class="nav-link px-3 headertext">© 2024 Arun Natarajan</span>
 				</div>
-
 				<ul class="nav col-md-4 justify-content-end list-unstyled d-flex">
 					<li>
 						<a href="https://www.arunnats.com/" class="nav-link px-3 footertext"
@@ -107,5 +124,38 @@
 				</ul>
 			</footer>
 		</div>
+
+		<script>
+			document
+				.getElementById("inputFormContainer")
+				.addEventListener("submit", function (event) {
+					event.preventDefault();
+					const url = document.getElementById("url").value;
+					const format = document.getElementById("format").value;
+					const quality = document.getElementById("quality").value;
+
+					const query = `url=${encodeURIComponent(
+						url
+					)}&format=${format}&quality=${quality}`;
+
+					fetch(`/download-video?${query}`, { method: "GET" })
+						.then((response) => {
+							if (response.ok) {
+								response.blob().then((blob) => {
+									const downloadUrl = window.URL.createObjectURL(blob);
+									const a = document.createElement("a");
+									a.href = downloadUrl;
+									a.download = `${url.split("v=")[1]}.${format}`;
+									document.body.appendChild(a);
+									a.click();
+									a.remove();
+								});
+							} else {
+								alert("Enter a valid Youtube video URL.");
+							}
+						})
+						.catch((error) => console.error("Error:", error));
+				});
+		</script>
 	</body>
 </html>

@@ -38,3 +38,35 @@ h4 {
 	font-family: "Reddit Sans", sans-serif;
 	color: whitesmoke;
 }
+
+#inputFormContainer {
+	display: flex;
+	flex-direction: column;
+	padding: 5px;
+}
+
+.inputForm,
+.choice {
+	background-color: whitesmoke;
+	font-family: "Reddit Sans", sans-serif;
+	color: black;
+	border: none;
+	padding: 10px;
+	border-radius: 4px;
+	margin-bottom: 10px;
+}
+
+.form-text {
+	font-family: "Reddit Sans", sans-serif;
+	color: whitesmoke;
+}
+
+button {
+	background-color: whitesmoke;
+	font-family: "Reddit Sans", sans-serif;
+	color: black;
+	border: none;
+	padding: 10px 20px;
+	border-radius: 4px;
+	cursor: pointer;
+}
