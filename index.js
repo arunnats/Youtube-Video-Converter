@@ -3,6 +3,7 @@ const ejs = require("ejs");
 const path = require("path");
 const bodyParser = require("body-parser");
 const ytdl = require("ytdl-core");
+const fs = require("fs");
 
 const app = express();
 const port = 3000;
@@ -23,28 +24,64 @@ app.get("/download-video", async (req, res) => {
 		}
 
 		const info = await ytdl.getInfo(url);
-		const title = info.videoDetails.title.replace(/[^\w\s]/gi, "");
-		const filename = `${title}.${format}`;
 
-		res.header("Content-Disposition", `attachment; filename="${filename}"`);
-		res.header("Content-Type", `video/${format}`);
+		if (format === "mp3") {
+			let audioOptions = {};
 
-		// Select the desired format and quality
-		const videoFormat = ytdl.chooseFormat(info.formats, {
-			quality: quality === "highest" ? "highest" : "lowest",
-			filter: (formatObj) => formatObj.container === format,
-		});
+			if (quality === "highest") {
+				audioOptions.quality = "highestaudio";
+			} else if (quality === "lowest") {
+				audioOptions.quality = "lowestaudio";
+			} else {
+				return res.status(400).send("Invalid audio quality option");
+			}
 
-		if (!videoFormat) {
-			return res
-				.status(400)
-				.send("No suitable format found for the specified quality");
+			const audioFormat = ytdl.chooseFormat(info.formats, audioOptions);
+			if (!audioFormat) {
+				return res.status(400).send("Audio format not available");
+			}
+
+			res.header(
+				"Content-Disposition",
+				`attachment; filename="${info.videoDetails.title}.mp3"`
+			);
+			res.header("Content-Type", "audio/mpeg");
+
+			const audioStream = ytdl.downloadFromInfo(info, { format: audioFormat });
+			audioStream.pipe(res);
+		} else if (format === "webm" || format === "mp4") {
+			let videoOptions = {};
+
+			if (quality === "highest") {
+				videoOptions.quality = "highest";
+			} else if (quality === "lowest") {
+				videoOptions.quality = "lowest";
+			} else {
+				const selectedFormat = info.formats.find(
+					(fmt) => fmt.qualityLabel === quality
+				);
+				if (!selectedFormat) {
+					return res.status(400).send("Selected quality is not available");
+				}
+				videoOptions.filter = (fmt) => fmt.qualityLabel === quality;
+			}
+
+			const videoFormats = ytdl.filterFormats(info.formats, videoOptions);
+			const selectedVideoFormat = videoFormats[0];
+
+			res.header(
+				"Content-Disposition",
+				`attachment; filename="${info.videoDetails.title}.${format}"`
+			);
+			res.header("Content-Type", `video/${format}`);
+
+			const videoStream = ytdl.downloadFromInfo(info, {
+				format: selectedVideoFormat,
+			});
+			videoStream.pipe(res);
+		} else {
+			return res.status(400).send("Invalid format");
 		}
-
-		// Stream the video
-		ytdl(url, {
-			format: videoFormat,
-		}).pipe(res);
 	} catch (error) {
 		console.error("Error downloading video:", error);
 		res.status(500).send("Error downloading video");

@@ -63,10 +63,8 @@
 		<div class="container-inputs">
 			<h1>YouTube Converter and Downloader</h1>
 			<h4>Convert YT URLs using yt-dlp</h4>
-			<form id="inputFormContainer" action="/download-video" method="post">
-				<label class="form-text" for="formResponse"
-					>Enter YouTube Video URL:</label
-				>
+			<form id="inputFormContainer" action="/download-video" method="get">
+				<label class="form-text" for="url">Enter YouTube Video URL:</label>
 				<input class="inputForm" type="text" id="url" name="url" required />
 
 				<label class="form-text" for="format">Select Format:</label>
@@ -80,9 +78,15 @@
 				<select class="inputForm" name="quality" id="quality">
 					<option value="highest" selected>Highest</option>
 					<option value="lowest">Lowest</option>
+					<option value="1080p">1080p</option>
+					<option value="720p">720p</option>
+					<option value="480p">480p</option>
+					<option value="360p">360p</option>
+					<option value="240p">240p</option>
+					<option value="144p">144p</option>
 				</select>
 
-				<button type="submit">Download Video!</button>
+				<button type="submit">Download!</button>
 			</form>
 		</div>
 
@@ -151,7 +155,9 @@
 									a.remove();
 								});
 							} else {
-								alert("Enter a valid Youtube video URL.");
+								response.text().then((errorMessage) => {
+									alert(errorMessage);
+								});
 							}
 						})
 						.catch((error) => console.error("Error:", error));
