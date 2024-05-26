@@ -87,10 +87,16 @@ app.get("/download-video", async (req, res) => {
 			const audioStream = ytdl.downloadFromInfo(info, { format: audioFormat });
 			const videoStream = ytdl.downloadFromInfo(info, { format: videoFormat });
 
-			audioStream.pipe(res, { end: false });
+			// audioStream.pipe(res, { end: false });
 
-			audioStream.on("end", () => {
-				videoStream.pipe(res);
+			//   audioStream.on("end", () => {
+			//       videoStream.pipe(res);
+			//   });
+
+			videoStream.pipe(res, { end: false });
+
+			videoStream.on("end", () => {
+				audioStream.pipe(res);
 			});
 
 			console.log("Video download initiated.");

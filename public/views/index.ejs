@@ -72,18 +72,23 @@
 					<option value="mp4" selected>MP4</option>
 					<option value="mp3">MP3</option>
 					<option value="webm">WEBM</option>
+					<option value="mkv">MKV</option>
 				</select>
 
 				<label class="form-text" for="quality">Select Quality:</label>
 				<select class="inputForm" name="quality" id="quality">
 					<option value="highest" selected>Highest</option>
 					<option value="lowest">Lowest</option>
-					<option value="1080p">1080p</option>
-					<option value="720p">720p</option>
-					<option value="480p">480p</option>
-					<option value="360p">360p</option>
-					<option value="240p">240p</option>
-					<option value="144p">144p</option>
+					<option value="313">2160p</option>
+					<option value="271">1440p</option>
+					<option value="299">1080p60</option>
+					<option value="137">1080p</option>
+					<option value="298">720p60</option>
+					<option value="136">720p</option>
+					<option value="135">480p</option>
+					<option value="134">360p</option>
+					<option value="133">240p</option>
+					<option value="160">144p</option>
 				</select>
 
 				<button type="submit">Download!</button>
@@ -145,7 +150,6 @@
 					fetch(`/download-video?${query}`, { method: "GET" })
 						.then((response) => {
 							if (response.ok) {
-								// Access and log the title from the response headers
 								const videoTitle = response.headers.get("Video-Title");
 								console.log("Video title:", videoTitle);
 
@@ -154,7 +158,6 @@
 									const a = document.createElement("a");
 									a.href = downloadUrl;
 
-									// Dynamically set the file name using the video title and format
 									a.download = `${videoTitle}.${format}`;
 
 									document.body.appendChild(a);
