@@ -71,7 +71,6 @@
 				<select class="inputForm" name="format" id="format">
 					<option value="mp4" selected>MP4</option>
 					<option value="mp3">MP3</option>
-					<option value="webm">WEBM</option>
 					<option value="mkv">MKV</option>
 				</select>
 
@@ -91,6 +90,17 @@
 					<option value="160">144p</option>
 				</select>
 
+				<button type="submit">Download!</button>
+			</form>
+		</div>
+		<br />
+		<div class="container-inputs">
+			<h4>Convert multiple videos to mp3</h4>
+			<form id="multiAudioForm" action="/download-multi-audio" method="get">
+				<label class="form-text" for="urls"
+					>Enter URLs separated with a semicolon:</label
+				>
+				<input class="inputForm" type="text" id="urls" name="urls" required />
 				<button type="submit">Download!</button>
 			</form>
 		</div>
@@ -159,6 +169,41 @@
 									a.href = downloadUrl;
 
 									a.download = `${videoTitle}.${format}`;
+
+									document.body.appendChild(a);
+									a.click();
+									a.remove();
+								});
+							} else {
+								response.text().then((errorMessage) => {
+									alert(errorMessage);
+								});
+							}
+						})
+						.catch((error) => console.error("Error:", error));
+				});
+
+			document
+				.getElementById("multiAudioForm")
+				.addEventListener("submit", function (event) {
+					event.preventDefault();
+					const urls = document.getElementById("urls").value;
+
+					const query = `urls=${encodeURIComponent(urls)}`;
+					fetch(`/download-multi-audio?${query}`, {
+						method: "GET",
+					})
+						.then((response) => {
+							if (response.ok) {
+								const fileName = "zippedmp3.zip";
+								console.log("File name:", fileName);
+
+								response.blob().then((blob) => {
+									const downloadUrl = window.URL.createObjectURL(blob);
+									const a = document.createElement("a");
+									a.href = downloadUrl;
+
+									a.download = fileName;
 
 									document.body.appendChild(a);
 									a.click();

@@ -45,6 +45,12 @@ h4 {
 	padding: 5px;
 }
 
+#multiAudioForm {
+	display: flex;
+	flex-direction: column;
+	padding: 5px;
+}
+
 .inputForm,
 .choice {
 	background-color: whitesmoke;
