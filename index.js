@@ -4,9 +4,28 @@ const path = require("path");
 const bodyParser = require("body-parser");
 const ytdl = require("ytdl-core");
 const sanitize = require("sanitize-filename");
+const ffmpeg = "./ffmpeg/bin/ffmpeg.exe";
+const fs = require("fs");
+const cp = require("child_process");
+const { spawn } = require("child_process");
+const AdmZip = require("adm-zip");
+const session = require("express-session");
+const { v4: uuidv4 } = require("uuid");
 
 const app = express();
 const port = 3000;
+
+app.use(
+	session({
+		genid: (req) => {
+			return uuidv4();
+		},
+		secret: "natsnatsnats",
+		resave: false,
+		saveUninitialized: true,
+		cookie: { secure: false },
+	})
+);
 
 app.set("views", path.join(__dirname, "public", "views"));
 app.set("view engine", "ejs");
@@ -14,10 +33,31 @@ app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
+function clearTempDirectory() {
+	const tempDir = path.join(__dirname, "temp");
+	if (fs.existsSync(tempDir)) {
+		fs.readdirSync(tempDir).forEach((file) => {
+			const filePath = path.join(tempDir, file);
+			if (fs.statSync(filePath).isDirectory()) {
+				fs.rmdirSync(filePath, { recursive: true });
+			}
+		});
+	}
+}
+
+clearTempDirectory();
+
 app.get("/download-video", async (req, res) => {
 	try {
 		const { url, format, quality } = req.query;
 		console.log("Request query parameters:", req.query);
+
+		const sessionId = req.sessionID;
+
+		const tempDir = path.join(__dirname, "temp", sessionId);
+		if (!fs.existsSync(tempDir)) {
+			fs.mkdirSync(tempDir, { recursive: true });
+		}
 
 		if (!ytdl.validateURL(url)) {
 			console.log("Invalid YouTube URL:", url);
@@ -31,7 +71,10 @@ app.get("/download-video", async (req, res) => {
 		const sanitizedTitle = sanitize(videoTitle);
 		console.log("Sanitized title:", sanitizedTitle);
 
-		res.setHeader("Video-Title", sanitizedTitle);
+		const titleWithQuality = `${sanitizedTitle} [${quality}]`;
+		console.log("Title with quality:", titleWithQuality);
+
+		res.setHeader("Video-Title", titleWithQuality);
 
 		if (format === "mp3") {
 			console.log("Downloading audio...");
@@ -41,65 +84,134 @@ app.get("/download-video", async (req, res) => {
 			});
 			console.log("Selected audio format:", audioFormat);
 
-			const filename = `${sanitizedTitle}.mp3`;
-			console.log("Download filename:", filename);
-
-			res.header("Content-Disposition", `attachment; filename="${filename}"`);
-			res.header("Content-Type", "audio/mpeg charset=UTF-8`");
+			const audioPath = path.join(
+				tempDir,
+				`temp_audio_${titleWithQuality}.m4a`
+			);
+			const audioFile = fs.createWriteStream(audioPath);
 
 			const audioStream = ytdl.downloadFromInfo(info, { format: audioFormat });
-			audioStream.pipe(res);
+			audioStream.pipe(audioFile);
 
-			console.log("Audio download initiated.");
-		} else if (format === "webm" || format === "mp4") {
+			audioFile.on("finish", () => {
+				console.log("Audio file downloaded.");
+
+				const mp3Path = path.join(tempDir, `${titleWithQuality}.mp3`);
+				const ffmpegArgs = [
+					"-i",
+					audioPath,
+					"-codec:a",
+					"libmp3lame",
+					"-q:a",
+					"2",
+					mp3Path,
+				];
+
+				const ffmpegProcess = cp.spawn(ffmpeg, ffmpegArgs, {
+					windowsHide: true,
+				});
+
+				ffmpegProcess.on("error", (err) => {
+					console.error("Error converting audio to MP3:", err);
+					res.status(500).send("Error converting audio to MP3");
+				});
+
+				ffmpegProcess.on("close", (code) => {
+					if (code === 0) {
+						fs.unlinkSync(audioPath);
+						res.download(mp3Path, (err) => {
+							if (err) {
+								console.error("Error sending file:", err);
+								res.status(500).send("Error sending file");
+							}
+							fs.unlink(mp3Path, (err) => {
+								if (err) {
+									console.error("Error deleting file:", err);
+								} else {
+									console.log("Temporary file deleted");
+								}
+							});
+						});
+					} else {
+						console.error(`FFmpeg process exited with code ${code}`);
+						res.status(500).send("Error converting audio to MP3");
+					}
+				});
+			});
+		} else if (format === "mp4" || format === "mkv") {
 			console.log("Downloading video...");
 
-			let videoOptions = {};
-			let audioOptions = {};
-
-			if (quality === "highest") {
-				videoOptions.quality = "highest";
-				audioOptions.quality = "highestaudio";
-			} else if (quality === "lowest") {
-				videoOptions.quality = "lowest";
-				audioOptions.quality = "lowestaudio";
-			} else {
-				const selectedFormat = info.formats.find(
-					(fmt) => fmt.qualityLabel === quality
-				);
-				if (!selectedFormat) {
-					console.log("Selected quality is not available:", quality);
-					return res.status(400).send("Selected quality is not available");
-				}
-				videoOptions.filter = (fmt) => fmt.qualityLabel === quality;
-				audioOptions.filter = (fmt) => fmt.qualityLabel === quality;
+			const videoFormat = ytdl.chooseFormat(info.formats, { quality: quality });
+			if (!videoFormat) {
+				console.log("Requested quality not available:", quality);
+				return res.status(404).send("Requested quality not available");
 			}
 
-			const videoFormat = ytdl.chooseFormat(info.formats, videoOptions);
-			const audioFormat = ytdl.chooseFormat(info.formats, audioOptions);
+			const outputFileName = `${titleWithQuality}.${format}`;
+			const outputPath = path.join(tempDir, outputFileName);
 
-			const filename = `${sanitizedTitle}.${format}`;
-			console.log("Download filename:", filename);
+			const audio = ytdl(url, { quality: "highestaudio" });
+			const video = ytdl(url, { quality });
 
-			res.header("Content-Disposition", `attachment; filename="${filename}"`);
-			res.header("Content-Type", `video/${format} charset=UTF-8`);
-
-			const audioStream = ytdl.downloadFromInfo(info, { format: audioFormat });
-			const videoStream = ytdl.downloadFromInfo(info, { format: videoFormat });
-
-			// audioStream.pipe(res, { end: false });
-
-			//   audioStream.on("end", () => {
-			//       videoStream.pipe(res);
-			//   });
-
-			videoStream.pipe(res, { end: false });
-
-			videoStream.on("end", () => {
-				audioStream.pipe(res);
+			video.on("info", (info) => {
+				if (!info) {
+					return res.status(400).send("Quality not found");
+				}
 			});
 
-			console.log("Video download initiated.");
+			const ffmpegProcess = cp.spawn(
+				ffmpeg,
+				[
+					"-loglevel",
+					"8",
+					"-hide_banner",
+					"-progress",
+					"pipe:3",
+					"-i",
+					"pipe:4",
+					"-i",
+					"pipe:5",
+					"-map",
+					"0:a",
+					"-map",
+					"1:v",
+					"-c:v",
+					"copy",
+					outputPath,
+				],
+				{
+					windowsHide: true,
+					stdio: ["inherit", "inherit", "inherit", "pipe", "pipe", "pipe"],
+				}
+			);
+
+			ffmpegProcess.on("close", () => {
+				console.log("FFmpeg process finished");
+				res.download(outputPath, (err) => {
+					if (err) {
+						console.error("Error sending file:", err);
+						res.status(500).send("Error sending file");
+					}
+					fs.unlink(outputPath, (err) => {
+						if (err) {
+							console.error("Error deleting file:", err);
+						} else {
+							console.log("Temporary file deleted");
+						}
+					});
+				});
+			});
+
+			ffmpegProcess.stdio[3].on("data", (chunk) => {
+				const lines = chunk.toString().trim().split("\n");
+				const args = {};
+				for (const l of lines) {
+					const [key, value] = l.split("=");
+					args[key.trim()] = value.trim();
+				}
+			});
+			audio.pipe(ffmpegProcess.stdio[4]);
+			video.pipe(ffmpegProcess.stdio[5]);
 		} else {
 			console.log("Invalid format:", format);
 			return res.status(400).send("Invalid format");
@@ -109,6 +221,118 @@ app.get("/download-video", async (req, res) => {
 		res.status(500).send("Error downloading video");
 	}
 });
+
+app.get("/download-multi-audio", async (req, res) => {
+	try {
+		const { urls } = req.query;
+		console.log("Request query parameters:", req.query);
+
+		if (!urls || urls.indexOf(";") === -1) {
+			return res
+				.status(400)
+				.send(
+					"Please provide valid YouTube video URLs separated by semicolons (;)"
+				);
+		}
+
+		const urlArray = urls.split(";");
+
+		const urlList = [];
+		const uniqueUrls = new Set();
+
+		for (const url of urlArray) {
+			if (!uniqueUrls.has(url.trim())) {
+				uniqueUrls.add(url.trim());
+				urlList.push(url.trim());
+			}
+		}
+
+		if (urlList.length !== urlArray.length) {
+			return res
+				.status(400)
+				.send("Duplicate URLs are not allowed. Please provide unique URLs.");
+		}
+
+		const zip = new AdmZip();
+		const promises = [];
+
+		for (const url of urlList) {
+			promises.push(downloadAudio(url, zip));
+		}
+
+		await Promise.all(promises);
+
+		const zipFileName = "audio_files.zip";
+		const zipData = zip.toBuffer();
+		res.set("Content-Disposition", `attachment; filename="${zipFileName}"`);
+		res.set("Content-Type", "application/zip");
+		res.set("Content-Length", zipData.length);
+		res.end(zipData);
+	} catch (error) {
+		console.error("Error:", error);
+		res.status(500).send("An error occurred");
+	}
+});
+
+async function downloadAudio(url, zip) {
+	console.log("Downloading audio:", url);
+	const info = await ytdl.getInfo(url);
+	const audioFormat = ytdl.chooseFormat(info.formats, {
+		quality: "highestaudio",
+	});
+	console.log("Selected audio format:", audioFormat);
+
+	const titleWithQuality = `${info.videoDetails.title}_audio`;
+	const audioPath = `temp_audio_${titleWithQuality}.mp3`;
+	const mp3Path = `${titleWithQuality}.mp3`;
+
+	await new Promise((resolve, reject) => {
+		const audioStream = ytdl.downloadFromInfo(info, { format: audioFormat });
+		const audioFile = fs.createWriteStream(audioPath);
+
+		audioStream.pipe(audioFile);
+
+		audioFile.on("finish", async () => {
+			console.log("Downloaded audio:", audioPath);
+			const mp3Path = `${titleWithQuality}.mp3`;
+			const ffmpegArgs = [
+				"-i",
+				audioPath,
+				"-codec:a",
+				"libmp3lame",
+				"-q:a",
+				"2",
+				mp3Path,
+			];
+
+			const ffmpegProcess = cp.spawn(ffmpeg, ffmpegArgs, { windowsHide: true });
+
+			ffmpegProcess.on("error", (err) => {
+				console.error("Error converting audio to MP3:", err);
+				reject(err);
+			});
+
+			ffmpegProcess.on("close", (code) => {
+				if (code === 0) {
+					console.log("Converted audio to MP3:", mp3Path);
+					zip.addLocalFile(mp3Path);
+					resolve();
+				} else {
+					console.error(`FFmpeg process exited with code ${code}`);
+					reject(`FFmpeg process exited with code ${code}`);
+				}
+			});
+		});
+
+		audioFile.on("error", (err) => {
+			console.error("Error downloading audio:", err);
+			reject(err);
+		});
+	});
+
+	fs.unlinkSync(audioPath);
+	fs.unlinkSync(mp3Path);
+}
 
 app.get("/", (req, res) => {
 	res.render("index");
