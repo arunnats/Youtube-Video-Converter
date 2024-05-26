@@ -197,7 +197,25 @@ app.get("/download-multi-audio", async (req, res) => {
 				);
 		}
 
-		const urlList = [...new Set(urls.split(";"))];
+		const urlArray = urls.split(";");
+
+		// Remove duplicates
+		const urlList = [];
+		const uniqueUrls = new Set();
+
+		for (const url of urlArray) {
+			if (!uniqueUrls.has(url.trim())) {
+				uniqueUrls.add(url.trim());
+				urlList.push(url.trim());
+			}
+		}
+
+		if (urlList.length !== urlArray.length) {
+			return res
+				.status(400)
+				.send("Duplicate URLs are not allowed. Please provide unique URLs.");
+		}
+
 		const zip = new AdmZip();
 		const promises = [];
 

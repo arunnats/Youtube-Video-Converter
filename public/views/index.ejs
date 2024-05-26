@@ -61,8 +61,11 @@
 		</div>
 
 		<div class="container-inputs">
-			<h1>YouTube Converter and Downloader</h1>
-			<h4>Convert YT URLs using yt-dlp</h4>
+			<div class="title-container">
+				<h1>YouTube Converter and Downloader</h1>
+				<h4>Convert YT URLs using yt-dlp</h4>
+			</div>
+
 			<form id="inputFormContainer" action="/download-video" method="get">
 				<label class="form-text" for="url">Enter YouTube Video URL:</label>
 				<input class="inputForm" type="text" id="url" name="url" required />
@@ -100,14 +103,23 @@
 				<label class="form-text" for="urls"
 					>Enter URLs separated with a semicolon:</label
 				>
-				<input class="inputForm" type="text" id="urls" name="urls" required />
+				<textarea
+					id="urls"
+					name="urls"
+					class="inputForm"
+					rows="4"
+					cols="40"
+					placeholder="https://www.youtube.com/watch?v=VIDEO_ID1;https://www.youtube.com/watch?v=VIDEO_ID2;"
+					required
+				></textarea>
 				<button type="submit">Download!</button>
 			</form>
 		</div>
+		<br /><br />
 
 		<div class="container">
 			<footer
-				class="d-flex flex-wrap justify-content-between align-items-center py-3 my-4 border-top"
+				class="d-flex flex-wrap justify-content-between align-items-center py-3 border-top"
 			>
 				<div class="col-md-4 d-flex align-items-center">
 					<a
@@ -145,10 +157,19 @@
 		</div>
 
 		<script>
+			let inputFormSubmitting = false;
+			let multiAudioFormSubmitting = false;
+
 			document
 				.getElementById("inputFormContainer")
 				.addEventListener("submit", function (event) {
 					event.preventDefault();
+					if (inputFormSubmitting) {
+						alert("Download in progress. Please wait.");
+						return;
+					}
+					inputFormSubmitting = true;
+
 					const url = document.getElementById("url").value;
 					const format = document.getElementById("format").value;
 					const quality = document.getElementById("quality").value;
@@ -180,13 +201,22 @@
 								});
 							}
 						})
-						.catch((error) => console.error("Error:", error));
+						.catch((error) => console.error("Error:", error))
+						.finally(() => {
+							inputFormSubmitting = false;
+						});
 				});
 
 			document
 				.getElementById("multiAudioForm")
 				.addEventListener("submit", function (event) {
 					event.preventDefault();
+					if (multiAudioFormSubmitting) {
+						alert("Download in progress. Please wait.");
+						return;
+					}
+					multiAudioFormSubmitting = true;
+
 					const urls = document.getElementById("urls").value;
 
 					const query = `urls=${encodeURIComponent(urls)}`;
@@ -215,7 +245,10 @@
 								});
 							}
 						})
-						.catch((error) => console.error("Error:", error));
+						.catch((error) => console.error("Error:", error))
+						.finally(() => {
+							multiAudioFormSubmitting = false;
+						});
 				});
 		</script>
 	</body>

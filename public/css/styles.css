@@ -23,7 +23,6 @@ body {
 	font-weight: 300;
 	font-size: small;
 }
-
 img {
 	height: 40px;
 }
@@ -31,12 +30,22 @@ img {
 h1 {
 	font-family: "Reddit Sans", sans-serif;
 	color: whitesmoke;
-	font-size: 50px;
+	font-size: 10vh;
+	margin: 10px;
 }
 
 h4 {
 	font-family: "Reddit Sans", sans-serif;
 	color: whitesmoke;
+	margin: 10px;
+}
+
+.title-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
 }
 
 #inputFormContainer {
@@ -75,4 +84,56 @@ button {
 	padding: 10px 20px;
 	border-radius: 4px;
 	cursor: pointer;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+	width: 12px;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: #ff0000;
+	border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background-color: #ff0000;
+}
+
+::-webkit-scrollbar-track {
+	background-color: whitesmoke;
+}
+
+::-webkit-scrollbar-corner {
+	background-color: whitesmoke;
+}
+
+* {
+	scrollbar-color: #ff0000 whitesmoke;
+	scrollbar-width: thin;
+}
+
+@media (max-width: 1000px) {
+	h1 {
+		font-family: "Reddit Sans", sans-serif;
+		color: whitesmoke;
+		font-size: 7vh;
+		margin: 10px;
+	}
+}
+
+@media (max-width: 800px) {
+	h1 {
+		font-family: "Reddit Sans", sans-serif;
+		color: whitesmoke;
+		font-size: 5vh;
+		margin: 10px;
+	}
+
+	h4 {
+		font-size: 2.5vh;
+	}
 }
